@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold text-gray-800">QR Generator</h1>
+            <p class="text-gray-600">Enter a URL to generate and manage your QR codes</p>
+        </header>
+
+        <!-- Input Section -->
+        <section class="bg-white p-6 rounded-lg shadow-md mb-10">
+            <div class="flex gap-4">
+                <input type="url" id="urlInput" placeholder="https://example.com" 
+                    class="flex-1 p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button onclick="generateQR()" 
+                    class="bg-blue-600 text-white px-6 py-3 rounded font-semibold hover:bg-blue-700 transition">
+                    Generate
+                </button>
+            </div>
+        </section>
+
+        <!-- Gallery Section -->
+        <h2 class="text-2xl font-semibold mb-6 text-gray-700">Your QR Codes</h2>
+        <div id="qrGallery" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- QR Codes will be injected here -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000'; // Adjust if your port differs
+
+        // Load existing QR codes on startup
+        window.onload = fetchQRCodes;
+
+        async function fetchQRCodes() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/qrcodes/`);
+                const codes = await response.json();
+                renderGallery(codes);
+            } catch (err) {
+                console.error("Error fetching QR codes:", err);
+            }
+        }
+
+        async function generateQR() {
+            const url = document.getElementById('urlInput').value;
+            if (!url) return alert("Please enter a URL");
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/qrcodes/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('urlInput').value = '';
+                    fetchQRCodes(); // Refresh list
+                }
+            } catch (err) {
+                console.error("Error generating QR:", err);
+            }
+        }
+
+        async function deleteQR(id) {
+            if (!confirm("Delete this QR code?")) return;
+
+            try {
+                await fetch(`${API_BASE_URL}/qrcodes/${id}`, { method: 'DELETE' });
+                fetchQRCodes(); // Refresh list
+            } catch (err) {
+                console.error("Error deleting QR:", err);
+            }
+        }
+
+        function renderGallery(codes) {
+            const gallery = document.getElementById('qrGallery');
+            gallery.innerHTML = codes.map(code => `
+                <div class="bg-white p-4 rounded-lg shadow hover:shadow-lg transition">
+                    <img src="${code.qr_code_url || API_BASE_URL + '/qrcodes/' + code.id + '/image'}" 
+                         alt="QR Code" class="w-full h-auto mb-4 border border-gray-100">
+                    <p class="text-sm text-gray-500 truncate mb-4" title="${code.url}">${code.url}</p>
+                    <button onclick="deleteQR('${code.id}')" 
+                        class="w-full text-red-500 text-sm font-medium hover:bg-red-50 py-2 rounded transition">
+                        Delete
+                    </button>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
